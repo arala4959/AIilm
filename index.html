@@ -1,0 +1,127 @@
+﻿<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a35">
+  <title>Tänane ilm</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: #f7f8ff; background: radial-gradient(ellipse at 70% 8%, #354b82 0, transparent 36%), linear-gradient(145deg, #101a35, #18294c 55%, #253b65); display: grid; place-items: center; padding: 28px 18px; }
+    .app { width: min(100%, 720px); }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; gap: 14px; }
+    .brand { font-size: 14px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #d9e5ff; }
+    button { font: inherit; color: #fff; border: 1px solid #ffffff35; background: #ffffff12; padding: 10px 14px; border-radius: 999px; cursor: pointer; transition: background .2s, transform .2s; }
+    button:hover { background: #ffffff25; transform: translateY(-1px); }
+    button:focus-visible { outline: 3px solid #a9d3ff; outline-offset: 3px; }
+    .card { overflow: hidden; border: 1px solid #ffffff25; border-radius: 28px; background: linear-gradient(145deg, #ffffff17, #ffffff09); box-shadow: 0 24px 70px #050b1c66; backdrop-filter: blur(16px); }
+    .current { padding: clamp(25px, 6vw, 46px); }
+    .place { margin: 0; font-size: clamp(25px, 5vw, 38px); letter-spacing: -.04em; }
+    .date { margin: 8px 0 0; color: #c2d0eb; text-transform: capitalize; }
+    .main-weather { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 34px 0 29px; }
+    .temperature { font-size: clamp(76px, 17vw, 132px); letter-spacing: -.09em; line-height: .9; font-weight: 300; }
+    .temperature small { font-size: .37em; vertical-align: top; letter-spacing: -.04em; }
+    .weather-icon { font-size: clamp(72px, 15vw, 112px); filter: drop-shadow(0 12px 18px #07132b75); }
+    .description { margin: 14px 0 0; color: #e0e9fb; font-size: 18px; }
+    .details { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #ffffff24; }
+    .detail { padding: 19px 10px 4px 0; }
+    .detail + .detail { padding-left: 18px; border-left: 1px solid #ffffff24; }
+    .detail-label { display: block; color: #b8c8e4; font-size: 13px; margin-bottom: 7px; }
+    .detail strong { font-size: 17px; }
+    .forecast { margin-top: 18px; padding: 23px 26px; }
+    .forecast h2 { font-size: 15px; margin: 0 0 18px; color: #dce7fb; }
+    .days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; text-align: center; }
+    .day { color: #c8d6ef; font-size: 13px; }
+    .day-icon { display: block; font-size: 24px; margin: 10px 0; }
+    .day strong { display: block; color: #fff; font-size: 14px; }
+    .status { min-height: 24px; color: #c2d0eb; font-size: 13px; text-align: center; margin: 15px 0 0; }
+    .error { color: #ffd3c8; }
+    @media (max-width: 460px) { .main-weather { padding: 29px 0 24px; } .details { grid-template-columns: 1fr 1fr; row-gap: 16px; } .detail:nth-child(3) { padding-left: 0; border-left: 0; } .forecast { padding: 21px 15px; } .days { gap: 2px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">☀ Tänane ilm</div>
+      <button id="locate" type="button">◎ Minu asukoht</button>
+    </header>
+    <section class="card current" aria-live="polite">
+      <h1 class="place" id="place">Tallinn</h1>
+      <p class="date" id="date"></p>
+      <div class="main-weather">
+        <div><div class="temperature"><span id="temp">—</span><small>°</small></div><p class="description" id="description">Ilma laadimine…</p></div>
+        <div class="weather-icon" id="icon" aria-hidden="true">🌤️</div>
+      </div>
+      <div class="details">
+        <div class="detail"><span class="detail-label">Tundub nagu</span><strong id="feels">—</strong></div>
+        <div class="detail"><span class="detail-label">Tuul</span><strong id="wind">—</strong></div>
+        <div class="detail"><span class="detail-label">Õhuniiskus</span><strong id="humidity">—</strong></div>
+      </div>
+    </section>
+    <section class="card forecast">
+      <h2>Järgmised päevad</h2>
+      <div class="days" id="days"></div>
+    </section>
+    <p class="status" id="status" role="status">Andmed: Open-Meteo</p>
+  </main>
+<script>
+  const codes = {
+    0: ['Selge taevas', '☀️'], 1: ['Peamiselt selge', '🌤️'], 2: ['Osaliselt pilves', '⛅'], 3: ['Pilves', '☁️'],
+    45: ['Udu', '🌫️'], 48: ['Härmatav udu', '🌫️'], 51: ['Kerge uduvihm', '🌦️'], 53: ['Uduvihm', '🌦️'], 55: ['Tugev uduvihm', '🌧️'],
+    56: ['Kerge jäätuv uduvihm', '🌧️'], 57: ['Jäätuv uduvihm', '🌧️'], 61: ['Kerge vihm', '🌦️'], 63: ['Vihm', '🌧️'], 65: ['Tugev vihm', '🌧️'],
+    66: ['Kerge jäätuv vihm', '🌧️'], 67: ['Jäätuv vihm', '🌧️'], 71: ['Kerge lumesadu', '🌨️'], 73: ['Lumesadu', '🌨️'], 75: ['Tugev lumesadu', '❄️'], 77: ['Lumehelbed', '🌨️'],
+    80: ['Kerged vihmahood', '🌦️'], 81: ['Vihmahood', '🌧️'], 82: ['Tugevad vihmahood', '⛈️'], 85: ['Lumehood', '🌨️'], 86: ['Tugevad lumehood', '❄️'], 95: ['Äike', '⛈️'], 96: ['Äike rahega', '⛈️'], 99: ['Tugev äike rahega', '⛈️']
+  };
+  const $ = id => document.getElementById(id);
+  const dateFormat = new Intl.DateTimeFormat('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('date').textContent = dateFormat.format(new Date());
+
+  async function loadWeather(lat = 59.437, lon = 24.7536, place = 'Tallinn') {
+    $('place').textContent = place;
+    $('status').classList.remove('error');
+    $('status').textContent = 'Laadin ilmainfot…';
+    try {
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.search = new URLSearchParams({ latitude: lat, longitude: lon, current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m', daily: 'weather_code,temperature_2m_max,temperature_2m_min', timezone: 'auto', forecast_days: '5' });
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Ilmateenusega ei õnnestunud ühendust saada.');
+      const data = await response.json();
+      const now = data.current;
+      const [label, emoji] = codes[now.weather_code] || ['Muutlik ilm', '🌤️'];
+      $('temp').textContent = Math.round(now.temperature_2m);
+      $('description').textContent = label;
+      $('icon').textContent = now.is_day ? emoji : '🌙';
+      $('feels').textContent = `${Math.round(now.apparent_temperature)}°`;
+      $('wind').textContent = `${Math.round(now.wind_speed_10m)} km/h`;
+      $('humidity').textContent = `${now.relative_humidity_2m}%`;
+      const dayFormat = new Intl.DateTimeFormat('et-EE', { weekday: 'short', timeZone: data.timezone });
+      $('days').innerHTML = data.daily.time.map((day, i) => {
+        const [desc, icon] = codes[data.daily.weather_code[i]] || ['Muutlik', '🌤️'];
+        return `<div class="day"><span>${i === 0 ? 'Täna' : dayFormat.format(new Date(`${day}T12:00:00`))}</span><span class="day-icon" role="img" aria-label="${desc}">${icon}</span><strong>${Math.round(data.daily.temperature_2m_max[i])}° <span style="color:#b8c8e4;font-weight:400">${Math.round(data.daily.temperature_2m_min[i])}°</span></strong></div>`;
+      }).join('');
+      $('status').textContent = `Uuendatud ${new Intl.DateTimeFormat('et-EE', { hour: '2-digit', minute: '2-digit', timeZone: data.timezone }).format(new Date())} · Andmed: Open-Meteo`;
+    } catch (error) {
+      $('status').textContent = `${error.message} Kontrolli internetiühendust ja proovi uuesti.`;
+      $('status').classList.add('error');
+    }
+  }
+
+  $('locate').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      $('status').textContent = 'Sinu brauser ei toeta asukoha määramist. Näitan Tallinna ilma.';
+      loadWeather();
+      return;
+    }
+    $('status').textContent = 'Ootan luba sinu asukoha kasutamiseks…';
+    navigator.geolocation.getCurrentPosition(
+      position => loadWeather(position.coords.latitude, position.coords.longitude, 'Sinu asukoht'),
+      () => { $('status').textContent = 'Asukohta ei saanud määrata. Näitan Tallinna ilma.'; loadWeather(); },
+      { timeout: 10000, maximumAge: 600000 }
+    );
+  });
+  loadWeather();
+</script>
+</body>
+</html>
